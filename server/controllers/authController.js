@@ -141,6 +141,18 @@ const loginUser = async (req, res) => {
             });
         }
 
+        // Demo admin credentials safeguard: prevent known demo credentials from being used in production
+        if (
+            process.env.NODE_ENV === "production" &&
+            user.email === "admin@example.com" &&
+            password === "password123"
+        ) {
+            return res.status(403).json({
+                success: false,
+                message: "Default demo admin credentials are disabled in production. Please use a securely provisioned administrator account."
+            });
+        }
+
         // A suspended account (set via the admin panel) cannot log back in.
         if (user.is_banned) {
             return res.status(403).json({

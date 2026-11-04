@@ -6,6 +6,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "node --test \"test/**/*.test.js\"",
+    "seed": "node db/seed.js",
     "check:openapi": "node scripts/check-openapi.js",
     "smoke": "node scripts/smoke-test.js"
   },

@@ -1,16 +1,24 @@
 -- ============================================================================
--- Eventora — OPTIONAL Demo Seed Data
+-- Eventora — DEVELOPMENT / DEMO SEED DATA ONLY
 -- ============================================================================
--- This is entirely optional. Run it only if you want the app to look
--- populated for a demo/showcase. It never runs automatically and it will
--- NOT touch or delete any existing data (every insert is ON CONFLICT DO
--- NOTHING, keyed on unique emails / business names).
+-- CRITICAL SECURITY NOTICE:
+-- This file seeds fictional development accounts and a demo admin account
+-- with a publicly known development password (password123).
+-- DO NOT RUN THIS SCRIPT IN A PRODUCTION ENVIRONMENT.
 --
--- HOW TO RUN (after schema.sql has been applied):
---   psql -U postgres -d eventora -f server/db/seed.sql
---
--- All seeded accounts use the password:  password123
+-- PRODUCTION SAFETY GUARD:
+-- If the current database session is flagged as production, this script
+-- will abort immediately to prevent accidental deployment of demo data.
+-- Override in non-production environments with: SET eventora.allow_demo_seed = 'true';
 -- ============================================================================
+
+DO $$
+BEGIN
+    IF current_setting('eventora.environment', true) = 'production'
+       AND current_setting('eventora.allow_demo_seed', true) IS DISTINCT FROM 'true' THEN
+        RAISE EXCEPTION 'SECURITY BLOCKED: Attempted to load development seed data into a production database.';
+    END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- USERS: 4 customers + 15 vendor accounts

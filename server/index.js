@@ -16,6 +16,22 @@ const { createNotification } = require("./utils/notify");
 // CONFIG
 dotenv.config();
 
+// ENVIRONMENT VALIDATION
+const isProduction = process.env.NODE_ENV === "production";
+if (isProduction) {
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
+        throw new Error(
+            "FATAL: Insecure or missing JWT_SECRET in production environment. " +
+            "Please configure a strong random secret (minimum 16 characters)."
+        );
+    }
+} else if (!process.env.JWT_SECRET) {
+    console.warn(
+        "[DEV NOTICE] JWT_SECRET is not set in environment. " +
+        "Set JWT_SECRET in server/.env."
+    );
+}
+
 // APP
 const app = express();
 

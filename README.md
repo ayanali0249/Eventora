@@ -431,8 +431,16 @@ psql -U postgres -d eventora -f server/db/schema.sql
 To populate the application with 15 realistic vendors across 10 categories, 4 customer accounts, bookings across various statuses, and verified reviews:
 
 ```bash
+# Using the Node.js runner (includes production safety checks):
+cd server
+npm run seed
+
+# Or manually using psql:
 psql -U postgres -d eventora -f server/db/seed.sql
 ```
+
+> [!NOTE]
+> Demo seed data is strictly for development and testing. The seed runner (`server/db/seed.js`) automatically refuses to run in production (`NODE_ENV=production`) unless explicitly overridden with `ALLOW_DEMO_SEED=true`.
 
 ---
 
@@ -499,6 +507,7 @@ You can run the entire stack (PostgreSQL database, Node.js API, and Nginx SPA cl
 | `npm run dev` | Start development server with live reload (`nodemon`) |
 | `npm start` | Start server in production mode |
 | `npm test` | Run planner unit test suite using Node native test runner |
+| `npm run seed` | Load development demo seed data with production safety checks |
 | `npm run check:openapi` | Verify 100% route-to-spec parity between routes and OpenAPI documentation |
 | `npm run smoke` | Run 26 end-to-end integration checks against running server (`SMOKE_URL=http://localhost:5000`) |
 
@@ -513,7 +522,12 @@ You can run the entire stack (PostgreSQL database, Node.js API, and Nginx SPA cl
 
 ---
 
-## Demo Credentials
+## Demo Credentials (Development Only)
+
+> [!WARNING]
+> **DEVELOPMENT & DEMO USE ONLY**: The credentials below are provided exclusively for local testing.
+> In a production environment (`NODE_ENV=production`), logging in with `admin@example.com` and `password123` is **automatically disabled and refused**.
+> In production, administrator accounts must be provisioned directly in PostgreSQL with a strong, randomly generated password hash.
 
 All seeded demo accounts in `server/db/seed.sql` use the password: `password123`.
 
@@ -526,7 +540,7 @@ All seeded demo accounts in `server/db/seed.sql` use the password: `password123`
 | **Vendor** | `vendor1@example.com` | `password123` | Royal Wedding Studio (Photography, Jaipur) |
 | **Vendor** | `vendor3@example.com` | `password123` | Royal Feast Caterers (Catering, Delhi) |
 | **Vendor** | `vendor9@example.com` | `password123` | The Grand Pavilion (Venue, Bangalore) |
-| **Admin** | `admin@example.com` | `password123` | Platform Administrator with full access to `/admin` |
+| **Admin** | `admin@example.com` | `password123` | Development Demo Admin (disabled in production) |
 
 ---
 
@@ -649,6 +663,39 @@ Security is engineered into every tier of Eventora:
 5. **No Secrets in Client or Version Control**:
    - Frontend bundles expose only public runtime URLs (`VITE_API_URL`). Server secrets (`JWT_SECRET`, database credentials, API keys) stay on the server.
    - Comprehensive `.gitignore` rules prevent committing `.env` files, certificates, and private configurations.
+6. **Production Credential Enforcement**:
+   - `server/config/db.js` strictly requires `DATABASE_URL` or `POSTGRES_PASSWORD`/`PGPASSWORD` when `NODE_ENV=production`. If missing, startup fails immediately without printing connection strings.
+   - `server/index.js` validates that `JWT_SECRET` is defined with a minimum length of 16 characters in production environments.
+7. **Demo Account & Seed Data Lockdown**:
+   - Default demo admin login (`admin@example.com` / `password123`) is strictly rejected in production environments (`NODE_ENV=production`).
+   - `server/db/seed.js` and `server/db/seed.sql` enforce guards preventing accidental seed data execution against production databases.
+
+---
+
+## Secret Rotation & Security Remediation
+
+If credentials or keys were previously handled in development or shared environments, follow these manual rotation steps:
+
+### 1. Cloudinary API Credentials Rotation
+1. Log in to the [Cloudinary Console](https://console.cloudinary.com/).
+2. Navigate to **Settings (Gear Icon) -> Access Keys**.
+3. Under the active API key pair, click **Generate New Key**.
+4. Update `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` in your secure production `.env` or deployment secrets manager.
+5. In the Cloudinary Console, disable or delete the older compromised access key once the new key is active.
+
+### 2. Google Gemini API Key Rotation
+1. Go to [Google AI Studio API Keys](https://aistudio.google.com/app/apikey).
+2. Locate the existing API key and click **Delete** (or click **Create API key** to create a replacement).
+3. Copy the newly generated key.
+4. Update `GEMINI_API_KEY` in your secure deployment environment or server `.env`.
+
+### 3. JWT Signing Secret Rotation
+1. Generate a cryptographically strong 256-bit random string:
+   ```bash
+   openssl rand -hex 32
+   ```
+2. Update `JWT_SECRET` in your `.env` or secret manager.
+3. *Note*: Rotating `JWT_SECRET` immediately invalidates active sessions, requiring existing users to re-authenticate.
 
 ---
 

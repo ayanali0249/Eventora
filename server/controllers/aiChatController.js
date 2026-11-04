@@ -80,6 +80,7 @@ const findRelevantVendors = async (message) => {
 
 const sendMessage = async (req, res) => {
     try {
+        const apiKey = process.env.GEMINI_API_KEY;
         const { message, history } = req.body;
 
         if (!message || !message.trim()) {
@@ -89,8 +90,8 @@ const sendMessage = async (req, res) => {
             });
         }
 
-        if (!GEMINI_API_KEY) {
-            return res.status(500).json({
+        if (!apiKey) {
+            return res.status(503).json({
                 success: false,
                 message: "The AI assistant is not available right now.",
             });
@@ -133,7 +134,7 @@ const sendMessage = async (req, res) => {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-goog-api-key": GEMINI_API_KEY,
+                "x-goog-api-key": apiKey,
             },
             body: JSON.stringify({
                 contents,

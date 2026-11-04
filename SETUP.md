@@ -584,6 +584,10 @@ To check a running server end to end (also what CI does):
 
 ## Demo data
 
+> **SECURITY NOTICE — DEVELOPMENT ONLY:** All demo credentials are for local development and demonstration only.
+> In production (`NODE_ENV=production`), `admin@example.com` login is disabled.
+> Demo seed scripts (`npm run seed` / `server/db/seed.sql`) include safeguards preventing execution against production databases.
+
 Fifteen vendors are seeded across 10 categories (Photography, Catering,
 Decoration, Venue, Entertainment, Wedding Planning, Makeup & Beauty,
 Mehendi Artist, Invitations & Stationery, Transportation) and 5 cities
