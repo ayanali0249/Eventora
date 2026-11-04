@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 import API from "../services/api";
 import toast from "react-hot-toast";
@@ -46,8 +46,6 @@ function LoginPage() {
                 formData
             );
 
-            console.log(response.data);
-
             login(
                  response.data.user,
                 response.data.token
@@ -55,7 +53,17 @@ function LoginPage() {
 
             toast.success("Login successful ");
 
-            navigate("/dashboard");
+            // FIXED: this used to always send everyone to /dashboard, which
+            // is wrapped in a RoleRoute that only allows role === "customer".
+            // A vendor (or now admin) logging in was immediately bounced
+            // back to "/".
+            if (response.data.user.role === "vendor") {
+                navigate("/vendor-dashboard");
+            } else if (response.data.user.role === "admin") {
+                navigate("/admin");
+            } else {
+                navigate("/dashboard");
+            }
 
         } catch (error) {
 
@@ -79,16 +87,16 @@ function LoginPage() {
 
     return (
 
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 px-6">
+        <div className="min-h-screen flex items-center justify-center bg-cream px-6">
 
             <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-lg">
 
-                <h2 className="text-4xl font-bold text-center text-gray-900">
+                <h2 className="text-4xl font-display font-semibold text-center text-ink">
                     Welcome Back
                 </h2>
 
                 <p className="text-gray-500 text-center mt-3">
-                    Login to continue 🚀
+                    Welcome back — let's find your next vendor.
                 </p>
 
                 <form
@@ -103,7 +111,7 @@ function LoginPage() {
                         placeholder="Email Address"
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-purple-600"
+                        className="w-full border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-teal-600"
                         required
                     />
 
@@ -114,7 +122,7 @@ function LoginPage() {
                         placeholder="Password"
                         value={formData.password}
                         onChange={handleChange}
-                        className="w-full border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-purple-600"
+                        className="w-full border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-teal-600"
                         required
                     />
 
@@ -122,7 +130,7 @@ function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-purple-600 text-white py-4 rounded-xl font-bold hover:bg-purple-700 transition"
+                        className="w-full bg-teal-600 text-white py-4 rounded-xl font-bold hover:bg-teal-700 transition"
                     >
 
                         {
@@ -134,6 +142,13 @@ function LoginPage() {
                     </button>
 
                 </form>
+
+                <p className="text-center text-gray-500 mt-6">
+                    Don't have an account?{" "}
+                    <Link to="/register" className="text-teal-600 font-semibold hover:underline">
+                        Sign up
+                    </Link>
+                </p>
 
             </div>
 

@@ -1,0 +1,5 @@
+{
+  "react-hooks/set-state-in-effect": 17,
+  "react-refresh/only-export-components": 6,
+  "react-hooks/exhaustive-deps": 1
+}

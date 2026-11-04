@@ -5,18 +5,40 @@ const router = express.Router();
 const multer = require("multer");
 
 const cloudinary = require("../config/cloudinary");
+const authMiddleware = require("../middleware/authMiddleware");
 
 const storage = multer.memoryStorage();
 
+// Same 5MB / images-only limit as the general upload route.
 const upload = multer({
-    storage
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith("image/")) {
+            cb(null, true);
+        } else {
+            cb(new Error("Only image files are allowed"));
+        }
+    }
 });
 
 router.post(
 
     "/",
 
-    upload.single("file"),
+    authMiddleware,
+
+    (req, res, next) => {
+        upload.single("file")(req, res, (err) => {
+            if (err) {
+                return res.status(400).json({
+                    success: false,
+                    message: err.message || "Upload failed"
+                });
+            }
+            next();
+        });
+    },
 
     async (req, res) => {
 
@@ -24,6 +46,13 @@ router.post(
 
             const file =
                 req.file;
+
+            if (!file) {
+                return res.status(400).json({
+                    success: false,
+                    message: "No file uploaded"
+                });
+            }
 
             const result =
                 await cloudinary.uploader.upload(
@@ -58,8 +87,7 @@ router.post(
 
                 success: false,
 
-                error:
-                    error.message
+                message: "Something went wrong. Please try again."
 
             });
 

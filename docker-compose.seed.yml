@@ -1,0 +1,6 @@
+# Optional override: also load the demo data on first start.
+#   docker compose -f docker-compose.yml -f docker-compose.seed.yml up --build
+services:
+  db:
+    volumes:
+      - ./server/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro

@@ -4,7 +4,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "check:openapi": "node scripts/check-openapi.js",
+    "smoke": "node scripts/smoke-test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -12,11 +15,14 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "nodemon": "^3.1.10",
     "pg": "^8.21.0",
     "socket.io": "^4.8.3",
-    "streamifier": "^0.1.1"
+    "streamifier": "^0.1.1",
+    "swagger-ui-express": "^5.0.1"
   }
 }

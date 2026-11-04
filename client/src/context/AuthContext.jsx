@@ -1,6 +1,16 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 export const AuthContext = createContext();
+
+// Convenience hook: `const { user } = useAuth();` instead of every
+// component having to `useContext(AuthContext)` + import AuthContext.
+export function useAuth() {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error("useAuth must be used within an AuthProvider");
+    }
+    return context;
+}
 
 function AuthProvider({ children }) {
 

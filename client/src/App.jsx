@@ -12,6 +12,14 @@ import VendorDashboardPage from "./pages/VendorDashboardPage";
 import RoleRoute from "./routes/RoleRoute";
 import ChatPage from "./pages/ChatPage";
 import VendorDetailsPage from "./pages/VendorDetailsPage";
+import NotFoundPage from "./pages/NotFoundPage";
+import WishlistPage from "./pages/WishlistPage";
+import HistoryPage from "./pages/HistoryPage";
+import AIChatbot from "./components/AIChatbot"; // NEW: AI chatbot widget
+import AdminPage from "./pages/AdminPage"; // NEW: role-protected admin panel
+import PlannerPage from "./pages/PlannerPage"; // NEW: AI event planner
+import ComparePage from "./pages/ComparePage"; // NEW: multi-vendor comparison
+import CompareTray from "./components/CompareTray"; // NEW: floating comparison selection bar
 function App() {
 
   return (
@@ -69,13 +77,73 @@ function App() {
       <VendorDetailsPage />
       }
     />
-    
+
+    {/* WISHLIST (customer only) */}
+    <Route
+      path="/wishlist"
+      element={
+          <RoleRoute allowedRole="customer">
+            <WishlistPage />
+          </RoleRoute>
+      }
+    />
+
+    {/* AI EVENT PLANNER (customer only) */}
+    <Route
+      path="/planner"
+      element={
+          <RoleRoute allowedRole="customer">
+            <PlannerPage />
+          </RoleRoute>
+      }
+    />
+
+    {/* HISTORY (customer only) */}
+    <Route
+      path="/history"
+      element={
+          <RoleRoute allowedRole="customer">
+            <HistoryPage />
+          </RoleRoute>
+      }
+    />
+
     <Route
       path="/chat"
-      element={<ChatPage />}
+      element={
+          <ProtectedRoute>
+            <ChatPage />
+          </ProtectedRoute>
+      }
+    />
+
+    {/* ADMIN PANEL (admin only) */}
+    <Route
+      path="/admin"
+      element={
+          <RoleRoute allowedRole="admin">
+            <AdminPage />
+          </RoleRoute>
+      }
+    />
+
+    {/* COMPARE VENDORS - public, no auth required, same as /vendors itself */}
+    <Route
+      path="/compare"
+      element={<ComparePage />}
+    />
+
+    {/* CATCH-ALL 404 - previously any unknown route rendered a blank page */}
+    <Route
+      path="*"
+      element={<NotFoundPage />}
     />
 
 </Routes>
+
+      <AIChatbot />
+
+      <CompareTray />
 
     </>
 

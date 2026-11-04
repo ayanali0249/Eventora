@@ -1,0 +1,75 @@
+# Eventora - full stack in three containers:
+#
+#   docker compose up --build
+#
+# then open http://localhost:5173 (app) / http://localhost:5000/api/v1/docs (API docs).
+# Copy .env.example to .env first and fill in the values; compose refuses to
+# start without the required secrets rather than falling back to weak defaults.
+#
+# Load the demo data (15 vendors, bookings, reviews; every account uses the
+# password "password123") on the FIRST start with:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.seed.yml up --build
+#
+# Database init scripts only run when the volume is empty. To start over:
+#   docker compose down -v
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eventora
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Idempotent schema, applied automatically on first start.
+      - ./server/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d eventora"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build: ./server
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      # Same password as the db service; keep it URL-safe (letters/digits/-_.).
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/eventora
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      # The browser origin allowed by CORS / Socket.io - must match where the
+      # client container is published.
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+      # Optional integrations: leave empty and the related features simply
+      # report an error instead of the app failing to start.
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+    ports:
+      - "${SERVER_PORT:-5000}:5000"
+    stop_grace_period: 15s
+
+  client:
+    build:
+      context: ./client
+      args:
+        # What the BROWSER uses to reach the API (baked into the bundle).
+        VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:5000}
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "${CLIENT_PORT:-5173}:8080"
+
+volumes:
+  pgdata:

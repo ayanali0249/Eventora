@@ -3,27 +3,60 @@ node_modules/
 client/node_modules/
 server/node_modules/
 
-# Environment variables
+# Environment variables & secrets
 .env
 .env.*
-client/.env
-server/.env
+!.env.example
+*.env
+client/.env*
+!client/.env.example
+server/.env*
+!server/.env.example
 
-# Build output
+# Secret keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+credentials.json
+service-account.json
+secrets.json
+
+# Local database dumps and backups
+*.sqlite
+*.db
+*.sql.gz
+*.dump
+pgdata/
+
+# Build artifacts
 dist/
 build/
 client/dist/
 server/dist/
 
+# Coverage and test artifacts
+coverage/
+.nyc_output/
+
 # Logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
+pnpm-debug.log*
 
-# IDE
+# Editor and IDE
 .vscode/
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
+Desktop.ini

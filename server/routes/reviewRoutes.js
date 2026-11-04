@@ -13,12 +13,16 @@ const {
 } = require("../controllers/reviewController");
 
 const auth = require("../middleware/authMiddleware");
+const requireRole = require("../middleware/roleMiddleware");
 
+// Only customers leave reviews
 router.post(
 
     "/create",
 
     auth,
+
+    requireRole("customer"),
 
     addReview
 

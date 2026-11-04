@@ -21,6 +21,7 @@ import {
 import API from "../services/api";
 
 import toast from "react-hot-toast";
+import { Camera, Loader2, UserCog, KeyRound, Trash2, LogOut } from "lucide-react";
 
 function UserMenu() {
 
@@ -57,7 +58,11 @@ function UserMenu() {
 
     const [confirmPassword, setConfirmPassword] = useState("");
 
-    const [profileImage,setProfileImage] = useState(user?.profile_image || "");
+    const [uploadingImage, setUploadingImage] = useState(false);
+
+    const [savingProfile, setSavingProfile] = useState(false);
+
+    const [savingPassword, setSavingPassword] = useState(false);
 
     const [name, setName] = useState(
 
@@ -81,7 +86,14 @@ function UserMenu() {
 
     const saveProfile = async () => {
 
+        if (!name.trim() || !email.trim()) {
+            toast.error("Name and email are required");
+            return;
+        }
+
         try {
+
+            setSavingProfile(true);
 
             const token = localStorage.getItem(
 
@@ -115,12 +127,6 @@ function UserMenu() {
 
             );
 
-            console.log(
-
-                response.data
-
-            );
-
             const updated = {
 
                 ...user,
@@ -149,35 +155,21 @@ function UserMenu() {
 
             setEditMode(false);
 
-            alert(
-
-                "Profile Updated"
-
-            );
+            toast.success("Profile updated");
 
         }
 
         catch(error){
 
-            console.log(
-
-                "PROFILE ERROR:",
-
-                error
-
+            toast.error(
+                error.response?.data?.message || "Update failed"
             );
 
-            console.log(
+        }
 
-                error.response?.data
+        finally {
 
-            );
-
-            alert(
-
-                "Update Failed"
-
-            );
+            setSavingProfile(false);
 
         }
 
@@ -185,21 +177,35 @@ function UserMenu() {
 
     const updatePassword = async () => {
 
+        if (!oldPassword || !newPassword) {
+            toast.error("Please fill in both password fields");
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            toast.error("New password must be at least 6 characters long");
+            return;
+        }
+
+        if (
+
+            newPassword !== confirmPassword
+
+        ) {
+
+            toast.error(
+
+                "Passwords do not match"
+
+            );
+
+            return;
+
+        }
+
         try {
 
-            if (
-
-                newPassword !== confirmPassword
-
-            ) {
-
-                return alert(
-
-                    "Passwords do not match"
-
-                );
-
-            }
+            setSavingPassword(true);
 
             const token = localStorage.getItem(
 
@@ -233,9 +239,9 @@ function UserMenu() {
 
             );
 
-            alert(
+            toast.success(
 
-                response.data.message
+                response.data.message || "Password updated"
 
             );
 
@@ -251,15 +257,19 @@ function UserMenu() {
 
         catch(error){
 
-            console.log(error);
-
-            alert(
+            toast.error(
 
                 error.response?.data?.message ||
 
                 "Password update failed"
 
             );
+
+        }
+
+        finally {
+
+            setSavingPassword(false);
 
         }
 
@@ -309,13 +319,15 @@ function UserMenu() {
 
             navigate("/login");
 
+            toast.success("Account deleted");
+
         }
 
         catch(error){
 
-            alert(
+            toast.error(
 
-                "Delete failed"
+                error.response?.data?.message || "Delete failed"
 
             );
 
@@ -333,99 +345,89 @@ function UserMenu() {
 
         if(!file) return;
 
-        const formData = new FormData();
-
-        formData.append(
-
-        "file",
-
-        file
-
-        );
-
-        formData.append(
-
-        "upload_preset",
-
-        "eventora_profile"
-
-        );
-
-        const response = await fetch(
-
-        `https://api.cloudinary.com/v1_1/djwyk9bzd/image/upload`,
-
-        {
-
-        method:"POST",
-
-        body:formData
-
+        if (!file.type.startsWith("image/")) {
+            toast.error("Please choose an image file");
+            e.target.value = "";
+            return;
         }
 
-        );
-
-        const data = await response.json();
-
-            console.log(
-
-            "CLOUDINARY:",
-
-            data
-
-        );
-
-        setProfileImage(
-
-        data.secure_url
-
-        );
-
-        const token = localStorage.getItem(
-
-        "token"
-
-        );
-
-        const saved = await API.put(
-
-        "/auth/profile-image",
-
-        {
-
-        imageUrl:
-
-        data.secure_url
-
-        },
-
-        {
-
-        headers:{
-
-        Authorization:
-
-        `Bearer ${token}`
-
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Image must be smaller than 5MB");
+            e.target.value = "";
+            return;
         }
 
+        const token = localStorage.getItem("token");
+
+        try {
+
+            setUploadingImage(true);
+
+            // FIXED: this used to call Cloudinary directly with an
+            // "eventora_profile" unsigned upload preset that was never
+            // actually created in the Cloudinary account, so every profile
+            // picture upload silently failed. It now goes through the
+            // backend's own signed upload endpoint (same one vendors use
+            // for portfolio/gallery images), which uses the Cloudinary
+            // credentials already configured in .env - no dashboard setup
+            // required.
+            const formData = new FormData();
+            formData.append("image", file);
+
+            const uploadRes = await API.post("/upload/image", formData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "multipart/form-data"
+                }
+            });
+
+            const imageUrl = uploadRes.data.imageUrl;
+
+            const saved = await API.put(
+
+                "/auth/profile-image",
+
+                {
+
+                    imageUrl
+
+                },
+
+                {
+
+                    headers:{
+
+                        Authorization:
+
+                        `Bearer ${token}`
+
+                    }
+
+                }
+
+            );
+
+            updateUser(
+
+                saved.data.user
+
+            );
+
+            toast.success("Profile picture updated");
+
+        } catch (error) {
+
+            toast.error(
+                error.response?.data?.message || "Could not upload image"
+            );
+
+        } finally {
+
+            setUploadingImage(false);
+
+            e.target.value = "";
+
         }
-
-        );
-
-        console.log(
-
-        "DB SAVE:",
-
-        saved.data
-
-        );
-
-        updateUser(
-
-        saved.data.user
-
-        );
 
         };
 
@@ -445,7 +447,7 @@ function UserMenu() {
 
                         }
 
-                        className="relative w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-purple-700 shadow-xl ring-4 ring-purple-100 hover:scale-105 transition duration-300"
+                        className="relative w-14 h-14 rounded-full overflow-hidden bg-teal-600 shadow-xl ring-4 ring-gold/30 hover:scale-105 transition duration-300"
 
                     >
 
@@ -489,13 +491,13 @@ function UserMenu() {
 
                     <label
 
-                        className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white shadow-lg border-2 border-purple-100 flex items-center justify-center cursor-pointer hover:scale-110 transition"
+                        className={`absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white shadow-lg border-2 border-teal-100 flex items-center justify-center transition ${uploadingImage ? "opacity-60 cursor-wait" : "cursor-pointer hover:scale-110"}`}
 
                     >
 
                         <span className="text-sm">
 
-                            ✏️
+                            {uploadingImage ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
 
                         </span>
 
@@ -506,6 +508,8 @@ function UserMenu() {
                             accept="image/*"
 
                             onChange={uploadProfile}
+
+                            disabled={uploadingImage}
 
                             className="hidden"
 
@@ -566,9 +570,10 @@ function UserMenu() {
 
                                     <button
                                         onClick={saveProfile}
-                                        className="w-full bg-purple-600 text-white rounded-xl p-3"
+                                        disabled={savingProfile}
+                                        className="w-full bg-teal-600 text-white rounded-xl p-3 disabled:opacity-60"
                                     >
-                                        Save Changes
+                                        {savingProfile ? "Saving..." : "Save Changes"}
                                     </button>
 
                                 </>
@@ -577,8 +582,9 @@ function UserMenu() {
 
                                 <button
                                     onClick={() => setEditMode(true)}
-                                    className="w-full text-left p-3 hover:bg-gray-100 rounded-xl"
+                                    className="w-full flex items-center gap-3 text-left p-3 hover:bg-gray-100 rounded-xl"
                                 >
+                                    <UserCog size={18} className="text-gray-500" />
                                     Change Name / Email
                                 </button>
 
@@ -636,11 +642,13 @@ function UserMenu() {
 
                                 onClick={updatePassword}
 
-                                className="w-full bg-purple-600 text-white rounded-xl p-3"
+                                disabled={savingPassword}
+
+                                className="w-full bg-teal-600 text-white rounded-xl p-3 disabled:opacity-60"
 
                                 >
 
-                                Update Password
+                                {savingPassword ? "Updating..." : "Update Password"}
 
                                 </button>
 
@@ -652,10 +660,11 @@ function UserMenu() {
 
                                 onClick={() => setPasswordMode(true)}
 
-                                className="w-full text-left p-3 hover:bg-gray-100 rounded-xl"
+                                className="w-full flex items-center gap-3 text-left p-3 hover:bg-gray-100 rounded-xl"
 
                                 >
 
+                                <KeyRound size={18} className="text-gray-500" />
                                 Change Password
 
                                 </button>
@@ -668,18 +677,20 @@ function UserMenu() {
 
                             onClick={handleDelete}
 
-                            className="w-full text-left p-3 text-red-500 hover:bg-red-50 rounded-xl"
+                            className="w-full flex items-center gap-3 text-left p-3 text-rose-600 hover:bg-rose-50 rounded-xl"
 
                             >
 
+                             <Trash2 size={18} />
                              Delete Account
 
                             </button>
 
                             <button
                                 onClick={handleLogout}
-                                className="w-full bg-purple-600 text-white rounded-xl p-3"
+                                className="w-full flex items-center justify-center gap-2 bg-teal-600 text-white rounded-xl p-3 hover:bg-teal-700 transition"
                             >
+                                <LogOut size={18} />
                                 Logout
                             </button>
 

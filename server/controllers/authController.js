@@ -9,6 +9,8 @@ const testAuth = (req, res) => {
     });
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const registerUser = async (req, res) => {
 
     try {
@@ -20,6 +22,30 @@ const registerUser = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Please fill all required fields"
+            });
+        }
+
+        // Validate email format
+        if (!EMAIL_REGEX.test(email)) {
+            return res.status(400).json({
+                success: false,
+                message: "Please enter a valid email address"
+            });
+        }
+
+        // Validate password strength
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 6 characters long"
+            });
+        }
+
+        // Validate role
+        if (role && !["customer", "vendor"].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                message: "Role must be either customer or vendor"
             });
         }
 
@@ -66,7 +92,7 @@ const registerUser = async (req, res) => {
 
         res.status(500).json({
             success: false,
-            error: error.message
+            message: "Something went wrong. Please try again."
         });
 
     }
@@ -78,7 +104,14 @@ const loginUser = async (req, res) => {
     try {
 
         const { email, password } = req.body;
-        console.log(req.body);
+
+        // Check missing fields
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Please enter email and password"
+            });
+        }
 
         // Check user exists
         const userResult = await pool.query(
@@ -108,11 +141,26 @@ const loginUser = async (req, res) => {
             });
         }
 
+        // A suspended account (set via the admin panel) cannot log back in.
+        if (user.is_banned) {
+            return res.status(403).json({
+                success: false,
+                message: user.ban_reason
+                    ? `Your account has been suspended: ${user.ban_reason}`
+                    : "Your account has been suspended"
+            });
+        }
+
         // Generate token
+        // FIXED: this token used to carry only id + role. The chat system
+        // (Socket.io) identifies the authenticated sender by name for
+        // display purposes, so it's included here too - avoids an extra
+        // DB lookup on every single chat message.
         const token = jwt.sign(
             {
                 id: user.id,
-                role: user.role
+                role: user.role,
+                name: user.name
             },
             process.env.JWT_SECRET,
             {
@@ -138,7 +186,7 @@ const loginUser = async (req, res) => {
 
         res.status(500).json({
             success: false,
-            error: error.message
+            message: "Something went wrong. Please try again."
         });
 
     }
@@ -218,11 +266,9 @@ const updateProfile = async (
         console.log(error);
 
         res.status(500).json({
+            success: false,
 
-            error:
-
-            error.message
-
+            message: "Something went wrong. Please try again."
         });
 
     }
@@ -249,6 +295,20 @@ const changePassword = async (
 
         } = req.body;
 
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Old and new password are required"
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "New password must be at least 6 characters long"
+            });
+        }
+
         const user = await pool.query(
 
             `
@@ -267,6 +327,13 @@ const changePassword = async (
 
         );
 
+        if (user.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
         const valid = await bcrypt.compare(
 
             oldPassword,
@@ -278,6 +345,8 @@ const changePassword = async (
         if (!valid) {
 
             return res.status(400).json({
+
+                success: false,
 
                 message:
 
@@ -332,11 +401,9 @@ const changePassword = async (
         console.log(error);
 
         res.status(500).json({
+            success: false,
 
-            error:
-
-            error.message
-
+            message: "Something went wrong. Please try again."
         });
 
     }
@@ -390,11 +457,9 @@ const deleteAccount = async (
         console.log(error);
 
         res.status(500).json({
+            success: false,
 
-            error:
-
-            error.message
-
+            message: "Something went wrong. Please try again."
         });
 
     }
@@ -459,9 +524,9 @@ const updateProfileImage = async (
         console.log(error);
 
         res.status(500).json({
+            success: false,
 
-            error:error.message
-
+            message: "Something went wrong. Please try again."
         });
 
     }

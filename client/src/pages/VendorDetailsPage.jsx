@@ -10,7 +10,9 @@ import {
 
     useParams,
 
-    useNavigate
+    useNavigate,
+
+    Link
 
 } from "react-router-dom";
 
@@ -18,11 +20,20 @@ import API from "../services/api";
 
 import BookingModal from "../components/BookingModal";
 
+import { useAuth } from "../context/AuthContext";
+
+import toast from "react-hot-toast";
+import { X, Star, ArrowLeft } from "lucide-react";
+import WishlistButton from "../components/WishlistButton";
+import AvailabilityCalendar from "../components/AvailabilityCalendar";
+
 function VendorDetailsPage() {
 
     const { id } = useParams();
 
     const navigate = useNavigate();
+
+    const { user, token } = useAuth();
 
     const [vendor, setVendor] = useState(null);
 
@@ -36,9 +47,39 @@ function VendorDetailsPage() {
 
     const [relatedVendors, setRelatedVendors] = useState([]);
 
+    const [reviewRating, setReviewRating] = useState(0);
+
+    const [submittingReview, setSubmittingReview] = useState(false);
+
+    const [loading, setLoading] = useState(true);
+
+    const [notFound, setNotFound] = useState(false);
+
+    // Confirmed bookings + the vendor's own blackout days, merged into one
+    // set of unavailable date strings for the read-only calendar below -
+    // the same shape BookingModal fetches again for its own interactive
+    // picker, so a customer sees the exact same availability in both
+    // places.
+    const [unavailableDates, setUnavailableDates] = useState(new Set());
+
+    const fetchAvailability = async () => {
+        try {
+            const response = await API.get(`/vendors/${id}/availability`);
+            const dates = new Set([
+                ...(response.data.bookedDates || []),
+                ...(response.data.blockedDates || []).map((b) => b.date)
+            ]);
+            setUnavailableDates(dates);
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
     const fetchVendor = async () => {
 
         try {
+
+            setLoading(true);
 
             const response = await API.get(
 
@@ -72,11 +113,30 @@ function VendorDetailsPage() {
 
             );
 
+            // Record this view for the customer's "Recently Viewed" history.
+            // Fire-and-forget: never blocks the page or shows an error if
+            // it fails, since it's a nice-to-have, not core functionality.
+            if (user?.role === "customer" && token) {
+                API.post(
+                    `/history/view/${response.data.vendor.id}`,
+                    {},
+                    { headers: { Authorization: `Bearer ${token}` } }
+                ).catch(() => {});
+            }
+
         }
 
         catch(error){
 
             console.log(error);
+
+            setNotFound(true);
+
+        }
+
+        finally {
+
+            setLoading(false);
 
         }
 
@@ -152,16 +212,42 @@ function VendorDetailsPage() {
 
         fetchReviews();
 
+        fetchAvailability();
+
     }, [id]);
 
-    if(!vendor){
+    if (loading) {
 
         return (
 
-            <div className="text-center p-10">
+            <div className="min-h-screen bg-gray-50 py-10 px-6">
+                <div className="max-w-6xl mx-auto animate-pulse space-y-6">
+                    <div className="h-[450px] bg-gray-200 rounded-3xl" />
+                    <div className="h-8 bg-gray-200 rounded w-1/3" />
+                    <div className="h-4 bg-gray-200 rounded w-1/2" />
+                    <div className="h-24 bg-gray-200 rounded" />
+                </div>
+            </div>
 
-                Loading...
+        );
 
+    }
+
+    if (notFound || !vendor) {
+
+        return (
+
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-gray-800">Vendor not found</h2>
+                    <p className="text-gray-500 mt-2">This vendor may have been removed or the link is incorrect.</p>
+                    <button
+                        onClick={() => navigate("/vendors")}
+                        className="mt-6 px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition"
+                    >
+                        Browse Vendors
+                    </button>
+                </div>
             </div>
 
         );
@@ -170,35 +256,91 @@ function VendorDetailsPage() {
 
     const openChat = () => {
 
+        if (!user) {
+            toast.error("Please log in to chat with this vendor");
+            navigate("/login");
+            return;
+        }
+
+        // Room id is keyed by (vendor, customer) pair - not by booking - so
+        // the same conversation is reachable before AND after a booking
+        // exists, and the vendor dashboard's "Chat with Customer" button
+        // (which knows the customer's id from the booking) lands in the
+        // exact same room.
         localStorage.setItem(
 
             "currentRoom",
 
-            `booking-${vendor.id}`
+            `chat-v${vendor.id}-c${user.id}`
 
         );
 
+        localStorage.setItem("currentRoomLabel", vendor.business_name);
+
         navigate("/chat");
 
+    };
+
+    const requireLogin = (action) => {
+        if (!user) {
+            toast.error(`Please log in to ${action}`);
+            navigate("/login");
+            return false;
+        }
+        return true;
     };
 
     return (
 
         <div className="min-h-screen bg-gray-50 py-10 px-6">
 
+            {/* BACK NAVIGATION */}
+            <div className="max-w-6xl mx-auto mb-6 flex items-center justify-between">
+
+                <button
+                    onClick={() => navigate(-1)}
+                    className="inline-flex items-center gap-2 text-gray-600 hover:text-teal-600 transition font-medium"
+                >
+                    <ArrowLeft size={18} />
+                    Back
+                </button>
+
+                <nav className="text-sm text-gray-400 hidden sm:flex items-center gap-2">
+                    <Link to="/vendors" className="hover:text-teal-600 transition">Vendors</Link>
+                    <span>/</span>
+                    <Link to={`/vendors?category=${encodeURIComponent(vendor.category)}`} className="hover:text-teal-600 transition">
+                        {vendor.category}
+                    </Link>
+                    <span>/</span>
+                    <span className="text-gray-600">{vendor.business_name}</span>
+                </nav>
+
+            </div>
+
             {/* MAIN CARD */}
 
             <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden">
 
-                <img
+                <div className="relative">
 
-                    src={selectedImage}
+                    <img
 
-                    alt={vendor.business_name}
+                        src={selectedImage}
 
-                    className="w-full h-[450px] object-cover"
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop";
+                        }}
 
-                />
+                        alt={vendor.business_name}
+
+                        className="w-full h-[450px] object-cover"
+
+                    />
+
+                    <WishlistButton vendorId={vendor.id} size="lg" className="absolute top-6 right-6" />
+
+                </div>
 
                 {/* GALLERY */}
 
@@ -245,7 +387,7 @@ function VendorDetailsPage() {
 
                                     }
 
-                                    className="w-28 h-20 rounded-xl object-cover cursor-pointer border-4 border-transparent hover:border-purple-500"
+                                    className="w-28 h-20 rounded-xl object-cover cursor-pointer border-4 border-transparent hover:border-teal-500"
 
                                 />
 
@@ -279,15 +421,15 @@ function VendorDetailsPage() {
 
                         <div className="text-right">
 
-                            <p className="text-3xl font-bold text-purple-600">
+                            <p className="text-3xl font-bold text-teal-600">
 
                                 {vendor.price_range}
 
                             </p>
 
-                            <p className="mt-2 text-lg">
+                            <p className="mt-2 text-lg flex items-center gap-1.5">
 
-                                ⭐ {vendor.avg_rating}
+                                <Star size={18} className="text-gold" fill="currentColor" strokeWidth={0} /> {vendor.avg_rating}
 
                                 <span className="text-gray-500 ml-2">
 
@@ -323,13 +465,33 @@ function VendorDetailsPage() {
 
                     </div>
 
+                    <div className="mt-10">
+
+                        <h2 className="text-2xl font-bold">
+                            Availability
+                        </h2>
+
+                        <p className="mt-2 text-gray-500">
+                            Dates already locked in or blocked off by this vendor are shown unavailable below.
+                        </p>
+
+                        <div className="mt-5">
+                            <AvailabilityCalendar unavailableDates={unavailableDates} />
+                        </div>
+
+                    </div>
+
                     <div className="flex gap-5 mt-10 flex-wrap">
 
                         <button
 
-                            onClick={() => setShowModal(true)}
+                            onClick={() => {
+                                if (requireLogin("book this vendor")) {
+                                    setShowModal(true);
+                                }
+                            }}
 
-                            className="px-8 py-4 bg-purple-600 text-white rounded-2xl hover:bg-purple-700 transition"
+                            className="px-8 py-4 bg-teal-600 text-white rounded-2xl hover:bg-teal-700 transition"
 
                         >
 
@@ -341,7 +503,7 @@ function VendorDetailsPage() {
 
                             onClick={openChat}
 
-                            className="px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-2xl hover:scale-105 transition shadow-lg"
+                            className="px-8 py-4 bg-rose-500 text-white rounded-2xl hover:bg-rose-600 transition shadow-lg"
 
                         >
 
@@ -353,11 +515,11 @@ function VendorDetailsPage() {
 
                             onClick={() =>
 
-                                setShowReviewModal(true)
+                                requireLogin("leave a review") && setShowReviewModal(true)
 
                             }
 
-                            className="px-8 py-4 border border-purple-600 text-purple-600 rounded-2xl hover:bg-purple-50 transition"
+                            className="px-8 py-4 border border-teal-600 text-teal-600 rounded-2xl hover:bg-teal-50 transition"
 
                         >
 
@@ -415,7 +577,7 @@ function VendorDetailsPage() {
 
                                                         <div className="flex gap-4 items-center">
 
-                                                            <div className="w-12 h-12 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
+                                                            <div className="w-12 h-12 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold">
 
                                                                 {
 
@@ -451,15 +613,19 @@ function VendorDetailsPage() {
 
                                                         </div>
 
-                                                        <div className="text-yellow-500 text-lg">
+                                                        <div className="flex gap-0.5 text-gold">
 
                                                             {
 
-                                                                "⭐".repeat(
-
-                                                                    review?.rating || 0
-
-                                                                )
+                                                                [1,2,3,4,5].map((i) => (
+                                                                    <Star
+                                                                        key={i}
+                                                                        size={16}
+                                                                        fill={i <= (review?.rating || 0) ? "currentColor" : "none"}
+                                                                        className={i <= (review?.rating || 0) ? "" : "text-gray-300"}
+                                                                        strokeWidth={i <= (review?.rating || 0) ? 0 : 1.5}
+                                                                    />
+                                                                ))
 
                                                             }
 
@@ -543,7 +709,17 @@ function VendorDetailsPage() {
 
                                     <img
 
-                                        src={item.portfolio_image}
+                                        src={
+                                            item.portfolio_image ||
+                                            "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop"
+                                        }
+
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop";
+                                        }}
+
+                                        alt={item.business_name}
 
                                         className="w-full h-40 object-cover"
 
@@ -606,7 +782,14 @@ function VendorDetailsPage() {
 
                 showReviewModal && (
 
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6">
+                    <div
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6"
+                        onClick={(e) => {
+                            if (e.target !== e.currentTarget) return;
+                            setShowReviewModal(false);
+                            setReviewRating(0);
+                        }}
+                    >
 
                         <div className="bg-white rounded-3xl p-10 w-full max-w-xl">
 
@@ -620,17 +803,16 @@ function VendorDetailsPage() {
 
                                 <button
 
-                                    onClick={() =>
+                                    onClick={() => {
+                                        setShowReviewModal(false);
+                                        setReviewRating(0);
+                                    }}
 
-                                        setShowReviewModal(false)
-
-                                    }
-
-                                    className="text-2xl"
+                                    className="text-gray-400 hover:text-ink transition"
 
                                 >
 
-                                    ✕
+                                    <X size={22} />
 
                                 </button>
 
@@ -644,7 +826,14 @@ function VendorDetailsPage() {
 
                                     e.preventDefault();
 
+                                    if (!reviewRating) {
+                                        toast.error("Please select a star rating");
+                                        return;
+                                    }
+
                                     try {
+
+                                        setSubmittingReview(true);
 
                                         const token = localStorage.getItem(
 
@@ -666,7 +855,7 @@ function VendorDetailsPage() {
 
                                                 vendor_id: vendor.id,
 
-                                                rating: form.get("rating"),
+                                                rating: reviewRating,
 
                                                 review: form.get("review")
 
@@ -686,15 +875,28 @@ function VendorDetailsPage() {
 
                                         );
 
+                                        toast.success("Review submitted, thank you!");
+
                                         fetchReviews();
 
                                         setShowReviewModal(false);
+
+                                        setReviewRating(0);
 
                                     }
 
                                     catch(error){
 
-                                        console.log(error);
+                                        toast.error(
+                                            error.response?.data?.message ||
+                                            "Could not submit your review"
+                                        );
+
+                                    }
+
+                                    finally {
+
+                                        setSubmittingReview(false);
 
                                     }
 
@@ -702,23 +904,27 @@ function VendorDetailsPage() {
 
                             >
 
-                                <input
-
-                                    name="rating"
-
-                                    type="number"
-
-                                    min="1"
-
-                                    max="5"
-
-                                    placeholder="Rating"
-
-                                    className="w-full border rounded-xl px-5 py-4"
-
-                                    required
-
-                                />
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600 mb-2">Your Rating</p>
+                                    <div className="flex gap-2">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <button
+                                                type="button"
+                                                key={star}
+                                                onClick={() => setReviewRating(star)}
+                                                className="transition"
+                                                aria-label={`${star} star`}
+                                            >
+                                                <Star
+                                                    size={32}
+                                                    className={star <= reviewRating ? "text-gold" : "text-gray-300"}
+                                                    fill="currentColor"
+                                                    strokeWidth={0}
+                                                />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
 
                                 <textarea
 
@@ -734,11 +940,13 @@ function VendorDetailsPage() {
 
                                 <button
 
-                                    className="w-full bg-purple-600 text-white py-4 rounded-xl"
+                                    disabled={submittingReview}
+
+                                    className="w-full bg-teal-600 text-white py-4 rounded-xl disabled:opacity-60"
 
                                 >
 
-                                    Submit Review
+                                    {submittingReview ? "Submitting..." : "Submit Review"}
 
                                 </button>
 

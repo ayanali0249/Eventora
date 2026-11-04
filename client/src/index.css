@@ -1,1 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Manrope:wght@400;500;600;700;800&display=swap');
+
 @import "tailwindcss";
+
+@theme {
+    --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Fraunces", ui-serif, Georgia, serif;
+
+    /* Deep jewel teal - replaces the default "purple" primary used
+       throughout the app. Kept under the `teal` name so every existing
+       `bg-teal-600`, `text-teal-700`, `border-teal-100` etc. class in the
+       codebase now resolves to this palette instead of Tailwind's default
+       (brighter, minty) teal. */
+    --color-teal-50: #EEF4F2;
+    --color-teal-100: #D9E6E3;
+    --color-teal-200: #B3CDC8;
+    --color-teal-300: #7FA9A2;
+    --color-teal-400: #4A857B;
+    --color-teal-500: #276861;
+    --color-teal-600: #114B4F;
+    --color-teal-700: #0D3B3E;
+    --color-teal-800: #0A2C2E;
+    --color-teal-900: #071D1E;
+
+    /* Deep maroon/oxblood - replaces the default "rose"/"pink" secondary
+       accent used for gradients and highlights. */
+    --color-rose-50: #F6E9EA;
+    --color-rose-100: #EBD0D2;
+    --color-rose-200: #D89DA2;
+    --color-rose-300: #C06A72;
+    --color-rose-400: #9E3A44;
+    --color-rose-500: #7A1F2B;
+    --color-rose-600: #641822;
+    --color-rose-700: #4D131A;
+    --color-rose-800: #370D13;
+    --color-rose-900: #21080B;
+
+    --color-cream: #FBF3E7;
+    --color-cream-dark: #F3E8D7;
+    --color-ink: #241C15;
+    --color-gold: #D89A2E;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: #FBF3E7;
+    color: #241C15;
+}
+
+h1, h2, h3,
+.font-display {
+    font-family: var(--font-display);
+}
